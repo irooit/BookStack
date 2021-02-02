@@ -190,6 +190,10 @@ func (this *ElasticSearchClient) Init() (err error) {
 // 如果书籍id大于0，则表示搜索指定的书籍的文档。否则表示搜索书籍
 // 如果不指定书籍id，则只能搜索
 func (this *ElasticSearchClient) Search(wd string, p, listRows int, isSearchDoc bool, bookId ...int) (result ElasticSearchResult, err error) {
+	if !this.On {
+		return
+	}
+
 	wd = strings.Replace(wd, "\"", " ", -1)
 	wd = strings.Replace(wd, "\\", " ", -1)
 	bid := 0
@@ -240,48 +244,6 @@ func (this *ElasticSearchClient) Search(wd string, p, listRows int, isSearchDoc 
 	    }}},"from": %v, "size": %v,"_source":["id"]}`
 		}
 	}
-
-	// 请求体
-	//if bid > 0 { // 搜索指定书籍的文档，不限私有和公有
-	//	queryBody = `{"query": {"bool": {"filter": [{
-	//			"term": {
-	//				"book_id": {$bookId}
-	//			}
-	//		}],
-	//     "must":{
-	//     	"query_string": {
-	//         "query": "%v",
-	//         "type": "phrase"
-	//       }
-	//     }
-	//	}},"from": %v,"size": %v,"_source":["id"]}`
-	//	queryBody = strings.Replace(queryBody, "{$bookId}", strconv.Itoa(bid), 1)
-	//} else {
-	//	if isSearchDoc { //搜索公开的文档
-	//		queryBody = `{"query": {"bool": {
-	//		"filter": [
-	//         {"range": {"book_id": {"gt": 0}}},
-	//         {"term": {"private": 0}}
-	//       ],"must":{
-	//     	"query_string": {
-	//         "query": "%v",
-	//         "type": "phrase"
-	//       }
-	//     }}},"from": %v,"size": %v,"_source":["id"]}`
-	//	} else { //搜索公开的书籍
-	//		queryBody = `{"query": {"bool": {
-	//		"filter": [
-	//       	{"term": {"book_id": 0}},
-	//           {"term": {"private": 0}}
-	//       ],"must":{
-	//     	"query_string": {
-	//         "query": "%v",
-	//         "type": "phrase"
-	//       }
-	//     }}},"from": %v, "size": %v,"_source":["id"]}`
-	//	}
-	//}
-
 	percent := GetOptionValue("SEARCH_ACCURACY", "50")
 	if this.IsRelateSearch {
 		percent = "10"
@@ -305,6 +267,9 @@ func (this *ElasticSearchClient) Search(wd string, p, listRows int, isSearchDoc 
 //采用批量重建索引的方式进行
 //每次操作100条数据
 func (this *ElasticSearchClient) RebuildAllIndex(bookId ...int) {
+	if !this.On {
+		return
+	}
 
 	bid := 0
 	if len(bookId) > 0 {
@@ -433,6 +398,10 @@ func (this *ElasticSearchClient) RebuildAllIndex(bookId ...int) {
 
 //通过bulk，批量创建/更新索引
 func (this *ElasticSearchClient) BuildIndexByBuck(data []ElasticSearchData) (err error) {
+	if !this.On {
+		return
+	}
+
 	now := time.Now()
 	var bodySlice []string
 	if len(data) > 0 {
@@ -466,6 +435,10 @@ func (this *ElasticSearchClient) BuildIndexByBuck(data []ElasticSearchData) (err
 
 // 设置书籍的公有和私有，需要根据文档同时更新文档的公有和私有
 func (this *ElasticSearchClient) SetBookPublic(bookId int, public bool) (err error) {
+	if !this.On {
+		return
+	}
+
 	if bookId <= 0 {
 		return
 	}
@@ -491,19 +464,20 @@ func (this *ElasticSearchClient) SetBookPublic(bookId int, public bool) (err err
 
 //创建索引
 func (this *ElasticSearchClient) BuildIndex(es ElasticSearchData) (err error) {
-	var (
-		js []byte
-	)
 	if !this.On {
 		return
 	}
+
+	var (
+		js  []byte
+		_id string
+	)
+
 	if orm.Debug {
 		beego.Info("创建索引--------start--------")
 		fmt.Printf("内容：%+v\n", es)
 		beego.Info("创建索引-------- end --------")
 	}
-
-	var _id string
 
 	es.Content = this.html2Text(es.Content)
 
@@ -577,6 +551,10 @@ func (this *ElasticSearchClient) Count() (count int, err error) {
 
 // 删除书籍索引
 func (this *ElasticSearchClient) DeleteIndex(id int, isBook bool) (err error) {
+	if !this.On {
+		return
+	}
+
 	_id := strconv.Itoa(id)
 	idStr := "doc_" + _id
 	if isBook {

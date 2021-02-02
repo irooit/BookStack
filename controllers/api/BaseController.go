@@ -22,7 +22,8 @@ import (
 
 type BaseController struct {
 	beego.Controller
-	Token string
+	Token   string
+	Version string
 }
 
 type APIResponse struct {
@@ -52,7 +53,7 @@ type APIBook struct {
 	Star        int       `json:"star"` // 收藏
 	Lang        string    `json:"lang"`
 	Cover       string    `json:"cover"`
-	Score       int       `json:"score"`       // 文档项目评分，默认40，即4.0星
+	Score       int       `json:"score"`       // 书籍评分，默认40，即4.0星
 	CntScore    int       `json:"cnt_score"`   // 评分个数
 	CntComment  int       `json:"cnt_comment"` // 评论人数
 	DocCount    int       `json:"cnt_doc"`     // 章节数量
@@ -207,6 +208,7 @@ func (this *BaseController) Prepare() {
 		}
 	}
 	this.Token = this.Ctx.Request.Header.Get("Authorization")
+	this.Version = this.Ctx.Request.Header.Get("x-version")
 
 	if !models.AllowVisitor && this.isLogin() == 0 { // 不允许游客访问，则除了部分涉及登录的API外，一律提示先登录
 		allowAPIs := map[string]bool{

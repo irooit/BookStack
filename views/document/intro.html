@@ -15,10 +15,10 @@
             <h1>{{.Book.BookName}}
                  {{if and (eq $.Member.MemberId $.Book.MemberId) (ne $.Book.RoleId 3)}}
                      <a href="{{urlfor "DocumentController.Edit" ":key" .Book.Identify ":id" ""}}" class="tooltips" title="编辑文档"> &nbsp;<small><i class="fa fa-edit"></i></small> </a>
-                     <a href="{{urlfor "BookController.Setting" ":key" .Book.Identify}}" class="tooltips" title="项目设置"> &nbsp;<small><i class="fa fa-cog"></i></small> </a>
+                     <a href="{{urlfor "BookController.Setting" ":key" .Book.Identify}}" class="tooltips" title="书籍设置"> &nbsp;<small><i class="fa fa-cog"></i></small> </a>
                  {{end}}
                 {{if and (gt $.Member.MemberId 0) (lt $.Member.Role 2)}}
-                    <a href="{{urlfor "ManagerController.EditBook" ":key" .Book.Identify}}" class="tooltips" title="管理员项目设置"> &nbsp;<small><i class="fa fa-cogs"></i></small> </a>
+                    <a href="{{urlfor "ManagerController.EditBook" ":key" .Book.Identify}}" class="tooltips" title="管理员书籍设置"> &nbsp;<small><i class="fa fa-cogs"></i></small> </a>
                 {{end}}
             </h1>
             {{if (ads "intro-under-book-name" $.IsMobile)}}
@@ -67,6 +67,9 @@
                             {{end}}
                         </a>
                         <a data-target="#ModalDownload" data-toggle="modal" href="#" target="_blank" class="btn btn-danger"><i class="fa fa-cloud-download"></i> 下载</a>
+                        <!-- {{if $.Wxacode}}
+                            <a href="#" data-target="#ModalBookChat" data-toggle="modal" class="btn btn-primary"><img src="/static/images/wxacode-white.png"> 小程序</a>
+                        {{end}} -->
                         <a href="#" data-target="#ModalShare" data-toggle="modal" class="btn btn-info"><i class="fa fa-share-alt"></i> &nbsp;分享</a>
                     </div>
                 </li>
@@ -93,6 +96,9 @@
                 {{end}}
                 </a>
                 <a data-target="#ModalDownload" data-toggle="modal" href="#" target="_blank" class="btn btn-danger"><i class="fa fa-cloud-download"></i>下载</a>
+{{/*                {{if $.Wxacode}}*/}}
+{{/*                    <a href="#" data-target="#ModalBookChat" data-toggle="modal" class="btn btn-primary"><img src="/static/images/wxacode-white.png">小程序</a>*/}}
+{{/*                {{end}}*/}}
                 <a href="#" data-target="#ModalShare" data-toggle="modal" class="btn btn-info"><i class="fa fa-share-alt"></i>分享</a>
             </div>
         </div>
@@ -124,8 +130,8 @@
     <div class="row">
         <div class="col-xs-12 bookstack-menu">
             <ul class="nav nav-tabs">
-                <li {{if eq .Tab "default"}}class="active"{{end}}><a href="{{urlfor "DocumentController.Index" ":key" $.Book.Identify}}"><span class="hidden-xs">文档</span>目录</a></li>
-                <li {{if eq .Tab "comment"}}class="active"{{end}}><a href="{{urlfor "DocumentController.Index" ":key" $.Book.Identify}}?tab=comment"><span class="hidden-xs">文档</span>评论 (<span class="text-muted">{{$.Book.CntComment}}</span>)</a></li>
+                <li {{if eq .Tab "default"}}class="active"{{end}}><a href="{{urlfor "DocumentController.Index" ":key" $.Book.Identify}}">书籍目录</a></li>
+                <li {{if eq .Tab "comment"}}class="active"{{end}}><a href="{{urlfor "DocumentController.Index" ":key" $.Book.Identify}}?tab=comment">书籍评论 (<span class="text-muted">{{$.Book.CntComment}}</span>)</a></li>
             </ul>
             <div class="help-block">
                 <ul class="none-listyle">
@@ -217,12 +223,15 @@
 </div>
 {{template "widgets/share.html" .}}
 {{template "widgets/download.html" .}}
+{{if $.Wxacode}}
+    {{template "widgets/bookchat.html" .}}
+{{end}}
 {{template "widgets/footer.html" .}}
 <script type="text/javascript" src="{{$.StaticDomain}}/static/js/toast.script.js"></script>
 <script type="text/javascript" src="/static/js/main.js?version={{$.Version}}"></script>
 <script>
 $(function(){
-    $("#bookstack-intro .bookstack-info img").click(function(){
+    $("#bookstack-intro .bookstack-info .col-md-3 img").click(function(){
         location.href=$("#bookstack-intro .bookstack-info .none-listyle .btn-success").attr("href");
     })
 })

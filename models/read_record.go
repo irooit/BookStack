@@ -120,7 +120,11 @@ func (this *ReadRecord) Add(docId, uid int) (err error) {
 	go new(Star).SetLastReadTime(uid, doc.BookId)
 
 	// 计算奖励的阅读时长
-	readingTime := this.calcReadingTime(uid, docId, now)
+	readingTime, lastReadDocId := this.calcReadingTime(uid, docId, now)
+	// 如果现在阅读的文档id与上次阅读的文档id相同，则不更新阅读时长
+	if lastReadDocId == docId {
+		return
+	}
 
 	o.Begin()
 	defer func() {
@@ -190,8 +194,36 @@ func (this *ReadRecord) LastReading(uid int, cols ...string) (r ReadRecord) {
 	return
 }
 
+func (this *ReadRecord) HistoryReadBook(uid, page, size int) (books []Book) {
+	// 由于md_books 没有 created_at 这个字段，所以这里将这个字段映射到version里面...
+	fields := "b.book_id,b.book_name,b.cover,b.vcnt,b.doc_count,b.description,b.identify,max(rr.create_at) as version"
+	sql := `
+select 
+	%v 
+from 
+	md_read_record rr 
+left join 
+	md_books b 
+on 
+	rr.book_id = b.book_id 
+where 
+	b.privately_owned=0 and rr.uid = ? 
+group by b.book_id 
+order by version desc 
+limit ? offset ?
+`
+	sql = fmt.Sprintf(sql, fields)
+	orm.NewOrm().Raw(sql, uid, size, (page-1)*size).QueryRows(&books)
+	for idx, book := range books {
+		book.ModifyTime = time.Unix(book.Version, 0)
+		book.Version = 0
+		books[idx] = book
+	}
+	return
+}
+
 //清空阅读记录
-//当删除文档项目时，直接删除该文档项目的所有记录
+//当删除书籍时，直接删除该书籍的所有记录
 func (this *ReadRecord) Clear(uid, bookId int) (err error) {
 	o := orm.NewOrm()
 	if bookId > 0 && uid > 0 {
@@ -211,7 +243,7 @@ func (this *ReadRecord) Clear(uid, bookId int) (err error) {
 //查询阅读记录
 func (this *ReadRecord) List(uid, bookId int) (lists []RecordList, cnt int64, err error) {
 	if uid*bookId == 0 {
-		err = errors.New("用户id和项目id不能为空")
+		err = errors.New("用户id和书籍id不能为空")
 		return
 	}
 	fields := "r.doc_id,r.create_at,d.document_name title,d.identify"
@@ -313,21 +345,21 @@ func (*ReadRecord) GetReadingRule() (r *ReadingRule) {
 // 在 5 - 600 秒之间的阅读计时，正常计时
 // 在 600 - 1800 秒(半个小时)之间的计时，按最大计时来计算时长
 // 超过半个小时之后才有阅读记录，则在此期间的阅读时长为0
-func (*ReadRecord) calcReadingTime(uid, docId int, t time.Time) int {
+func (*ReadRecord) calcReadingTime(uid, docId int, t time.Time) (duration int, lastReadDocId int) {
 	r := NewReadRecord()
 	rr := r.LastReading(uid, "uid", "doc_id", "created_at")
 	if rr.DocId == docId {
-		return 0
+		return 0, docId
 	}
 
 	rule := r.GetReadingRule()
 	diff := int(t.Unix()) - rr.CreateAt
 	if diff <= 0 || diff < rule.Min || diff >= rule.Invalid {
-		return 0
+		return 0, rr.DocId
 	}
 
 	if diff > rule.MaxReward {
-		return rule.Max
+		return rule.Max, rr.DocId
 	}
-	return diff
+	return diff, rr.DocId
 }

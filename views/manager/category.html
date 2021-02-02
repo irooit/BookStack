@@ -39,8 +39,8 @@
                                 <li>分类的icon图标，宽高比为1:1，最小图片尺寸为50x50像素</li>
                                 <li>点击分类图标可更换新图标</li>
                                 <li>分类关闭之后，只是在前台起到隐藏作用</li>
-                                <li>如果分类下的文档项目不为0，则该分类不能删除</li>
-                                <li>如果分类下的文档项目为0，前端不显示该分类，但是用户在给文档项目设置分类时是能看到的</li>
+                                <li>如果分类下的书籍不为0，则该分类不能删除</li>
+                                <li>如果分类下的书籍为0，前端不显示该分类，但是用户在给书籍设置分类时是能看到的</li>
                                 <li>点击 <i class="fa fa-minus-circle"></i> 可以收起分类；点击 <i class="fa fa-plus-circle"></i> 可以展开分类</li>
                             </ul>
                         </caption>
@@ -156,7 +156,7 @@
 </div>
 
 {{/*更新图标*/}}
-<form style="display: none;" action="{{urlfor "ManagerController.UpdateCateIcon"}}" target="notarget" method="post" class="cate-icon-form" enctype="multipart/form-data">
+<form style="display: none;" action="{{urlfor "ManagerController.UpdateCateIcon"}}" method="post" class="cate-icon-form" enctype="multipart/form-data">
     <input type="text" name="id" value="">
     <input type="file" accept="image/jpeg,image/jpg,image/png,image/gif" id="cate-icon" name="icon">
 </form>
@@ -210,9 +210,7 @@
 <iframe src="" style="display: none;" name="notarget" id="notarget" frameborder="0"></iframe>
 
 
-{{/*<script src="/static/jquery/1.12.4/jquery.min.js" type="text/javascript"></script>*/}}
 <script src="/static/jquery/1.12.4/jquery.min.js" type="text/javascript"></script>
-{{/*<script src="/static/bootstrap/js/bootstrap.min.js" type="text/javascript"></script>*/}}
 <script src="/static/bootstrap/js/bootstrap.min.js" type="text/javascript"></script>
 <script src="{{$.StaticDomain}}/static/js/toast.script.js"></script>
 <script src="/static/js/main.js?version={{$.Version}}" type="text/javascript"></script>

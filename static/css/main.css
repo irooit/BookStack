@@ -638,7 +638,9 @@ textarea{
 .navbar-brand{padding-left: 0px;}
 a{color: #333}
 .mgt-15px{margin-top: 15px;}
+.mgr-15px{margin-right: 15px;}
 .mgb-15px{margin-bottom: 15px;}
+.text-danger{color: red;}
 .none-listyle{list-style: none;padding: 0px;}
 .btn-group.dropdown-menu-right.pull-right.slidebar.visible-xs-inline-block.visible-sm-inline-block{margin-top: 7px;}
 .navbar-nav>li.active a{background-color: #EFEFEF;color: #06f;padding-bottom: 16px;}
@@ -750,7 +752,9 @@ a{color: #333}
 .category-manager .icon-category-small{cursor: pointer;}
 .category-manager .fa-minus-circle{cursor: pointer;font-size: 20px;}
 .category-manager .fa-plus-circle{cursor: pointer;font-size: 20px;color: #5cb85c;}
-.category-manager  [name=sort]{width: 80px !important;}
+.category-manager  [name=sort]{width: 70px !important;}
+.category-manager  [name=title]{width: 150px !important;}
+.category-manager  [name=intro]{min-width: 345px !important;}
 
 .row-cate{margin-top: 35px;margin-bottom: 15px;border: 1px solid red;height: 40px;overflow:hidden;}
 .row-cate .text-muted{margin-right: 15px;}
@@ -776,8 +780,14 @@ a{color: #333}
 .cate-list .panel{box-shadow: none;}
 .cate-list .panel-default{border:0px;margin-bottom: 0px;}
 .cate-list .panel-body{padding-left: 7px;padding-right: 7px;padding-top: 0px;}
-.cate-list .panel-body img{width: 50px;height: 50px;border:1px solid #f1f1f1;}
-.cate-list .panel-body .cate-item{margin-top: 15px;border: 1px solid rgba(0,0,0,.1);padding-left: 0px;padding-right: 15px;padding: 10px;border-radius: 3px;cursor: pointer}
+.cate-list .panel-body img{width: 50px;height: 50px;border:1px solid rgba(0,0,0,.08);border-radius: 50%;background-color: #fff;}
+.cate-list .panel-body .cate-item{
+    margin-top: 15px;
+    border: 1px solid rgba(0,0,0,.08);
+    padding-left: 0px;padding-right: 15px;padding: 10px;
+    border-radius: 4px;
+    cursor: pointer}
+.cate-list .panel-body .cate-item:hover{background-color: rgba(0,0,0,.08);}
 .cate-list .panel-body .col-xs-12{padding-left: 8px;padding-right: 8px;}
 .cate-list .cate-item>a{display: inline-block;float: left;}
 .cate-list .cate-item>div{display: inline-block;width: 100%;}
@@ -882,7 +892,7 @@ a{color: #333}
 .submit-book .form-group{margin-bottom: 30px;}
 .submit-book h1{margin:0 0 50px;font-size: 30px;}
 .submit-book .right{border-left: 1px solid #EFEFEF;line-height: 180%;}
-.submit-book .right div{text-indent: 2em;}
+/*.submit-book .right div{text-indent: 2em;}*/
 .submit-book .right strong,.submit-book .right h4{font-weight: normal;color: #000;}
 
 #page-rank .rank-head{margin: 30px 0;}
@@ -890,6 +900,7 @@ a{color: #333}
 #page-rank .panel-default{border-color: #EEEEEE}
 #page-rank .panel-default>.panel-heading{background-color: #ffffff;}
 #page-rank .panel-body ul,#page-rank .panel-body li{padding: 0;margin: 0;list-style: none;}
+#page-rank .panel-body{padding-left: 0;padding-right: 0;}
 #page-rank .panel-body li span{
     display: inline-block;
     max-width: 180px;
@@ -912,7 +923,8 @@ a{color: #333}
     color: #fff;background-color: #e6bf25;
 }
 #page-rank .panel-body li a{
-    display: block;padding: 10px 0 0;border-bottom: 1px dashed #EFEFEF;
+    display: block;padding: 10px 15px 0;
+    border-bottom: 1px dashed #EFEFEF;
     line-height: 30px;
 }
 #page-rank .panel-body li small{float: right;color: #aaaaaa}
@@ -926,7 +938,8 @@ a{color: #333}
 
 .category-index .panel-body{
     border:1px solid #f1f2f3;
-    padding: 0;
+    padding: 0; background-color: #ffffff;
+    overflow-y: auto;
 }
 
 .category-index ul,.category-index li{padding: 0;list-style: none;margin: 0}
@@ -957,6 +970,33 @@ a{color: #333}
     bottom: 0;
 }
 
+.category-index .panel-default.fixed{
+    position: fixed;
+    top: 70px;
+    z-index: 999;
+}
+
 @media (max-width: 768px) {
     .ucenter-content li .col-xs-3{padding-right: 0}
 }
+
+.cate-intro{border: 1px dashed #ccc;margin: 0 0 15px 0;padding: 5px 10px;box-sizing: border-box;color: #787878}
+
+.backtop{
+    position: fixed;
+    bottom: 50px;
+    right: 50px;
+    z-index: 9999;
+    width: 45px;
+    height: 45px;
+    text-align: center;
+    border: 1px solid #ddd;
+    font-size: 20px;
+    line-height: 40px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.backtop:hover{background-color: #dddddd;color: #10af88;}
+.wait2del>div{margin-bottom: 15px;}
+.wait2del ul{padding-left: 15px;}
+.wait2del label{font-weight: normal;}

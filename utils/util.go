@@ -12,6 +12,8 @@ import (
 	"reflect"
 	"sync"
 
+	"github.com/TruthHun/BookStack/utils/html2md"
+
 	"github.com/mssola/user_agent"
 
 	"github.com/astaxie/beego/context"
@@ -41,10 +43,8 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/TruthHun/gotil/util"
 	"github.com/astaxie/beego"
-	"github.com/huichen/sego"
 
 	"github.com/TruthHun/gotil/cryptil"
-	"github.com/TruthHun/html2md"
 )
 
 //存储类型
@@ -62,19 +62,14 @@ var (
 	Version     string = "unknown"
 	GitHash     string = "unknown"
 	BuildAt     string = "unknown"
-	Segmenter   sego.Segmenter
-	BasePath, _ = filepath.Abs(filepath.Dir(os.Args[0]))
-	StoreType   = beego.AppConfig.String("store_type") //存储类型
+	BasePath, _        = filepath.Abs(filepath.Dir(os.Args[0]))
+	StoreType          = beego.AppConfig.String("store_type") //存储类型
 	langs       sync.Map
 	httpTimeout = time.Duration(beego.AppConfig.DefaultInt("http_timeout", 30)) * time.Second
 	transfer    = strings.TrimRight(strings.TrimSpace(beego.AppConfig.String("http_transfer")), "/") + "/"
 )
 
 func init() {
-	//加载分词字典
-	go func() {
-		Segmenter.LoadDictionary(BasePath + "/dictionary/dictionary.txt")
-	}()
 	langs.Store("zh", "中文")
 	langs.Store("en", "英文")
 	langs.Store("other", "其他")
@@ -102,27 +97,6 @@ func GetLang(lang string) string {
 		return val.(string)
 	}
 	return "中文"
-}
-
-//分词
-//@param            str         需要分词的文字
-func SegWord(str interface{}) (wds string) {
-	//如果已经成功加载字典
-	if Segmenter.Dictionary() != nil {
-		wds = sego.SegmentsToString(Segmenter.Segment([]byte(fmt.Sprintf("%v", str))), true)
-		var wdslice []string
-		slice := strings.Split(wds, " ")
-		for _, wd := range slice {
-			w := strings.Split(wd, "/")[0]
-			if (strings.Count(w, "") - 1) >= 2 {
-				if i, _ := strconv.Atoi(w); i == 0 { //如果为0，则表示非数字
-					wdslice = append(wdslice, w)
-				}
-			}
-		}
-		wds = strings.Join(wdslice, ",")
-	}
-	return
 }
 
 //评分处理
@@ -382,8 +356,14 @@ func CropImage(file string, width, height int) (err error) {
 //force:是否是强力采集
 //intelligence:是否是智能提取，智能提取，使用html2article，否则提取body
 //diySelecter:自定义选择器
-//注意：由于参数问题，采集并下载图片的话，在headers中加上key为"project"的字段，值为文档项目的标识
+//注意：由于参数问题，采集并下载图片的话，在headers中加上key为"project"的字段，值为书籍的标识
 func CrawlHtml2Markdown(urlstr string, contType int, force bool, intelligence int, diySelector string, excludeSelector []string, links map[string]string, headers ...map[string]string) (cont string, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = errors.New(fmt.Sprint(r))
+			return
+		}
+	}()
 
 	//记录已经存在了的图片，避免重复图片出现重复采集的情况
 	var existImage bool
@@ -763,11 +743,6 @@ func GitClone(url, folder string) error {
 	return exec.Command("git", args...).Run()
 }
 
-type SplitMD struct {
-	Identify string
-	Cont     string
-}
-
 // 处理http响应成败
 func HandleResponse(resp *http.Response, err error) error {
 	if err == nil {
@@ -992,4 +967,80 @@ func FormatReadingTime(seconds int, withoutTag ...bool) string {
 		secondStr = "0" + secondStr
 	}
 	return fmt.Sprintf(strFmt, hour, secondStr)
+}
+
+// 拆分markdown
+func SplitMarkdown(segSharp, markdown string) (markdowns []string) {
+	var (
+		segIdx       []int
+		sharp        = "#"
+		sharpReplace = []string{
+			"#######",
+			"######",
+			"#####",
+			"####",
+			"###",
+			"##",
+			"#",
+		}
+		indexCodeBlockStart = -1
+		indexCodeBlockEnd   = -1
+	)
+
+	replaceFmt := "\n${%v}$"
+	for _, item := range sharpReplace {
+		k := "\n" + item
+		markdown = strings.Replace(markdown, k, fmt.Sprintf(replaceFmt, strings.Count(item, sharp)), -1)
+	}
+
+	seg := fmt.Sprintf("${%v}$", strings.Count(segSharp, sharp))
+	slice := strings.Split(markdown, "\n")
+
+	for idx, item := range slice {
+		item = strings.TrimSpace(item)
+		if strings.Contains(item, "<pre") {
+			indexCodeBlockStart = idx
+		}
+
+		if strings.Contains(item, "/pre>") {
+			indexCodeBlockEnd = idx
+		}
+
+		if strings.Contains(item, "```") {
+			if indexCodeBlockEnd >= indexCodeBlockStart {
+				indexCodeBlockStart = idx
+			} else {
+				indexCodeBlockEnd = idx
+			}
+		}
+
+		if idx > indexCodeBlockEnd && indexCodeBlockEnd >= indexCodeBlockStart && strings.HasPrefix(item, seg) {
+			item = strings.Replace(item, seg, segSharp, -1)
+			slice[idx] = item
+			segIdx = append(segIdx, idx)
+		}
+	}
+
+	recoverSharp := func(md string) string {
+		for _, item := range sharpReplace {
+			md = strings.Replace(md, fmt.Sprintf("${%v}$", strings.Count(item, sharp)), item, -1)
+		}
+		return md
+	}
+
+	start := 0
+	for idx, line := range segIdx {
+		md := recoverSharp(strings.Join(slice[start:line], "\n"))
+		start = line
+		markdowns = append(markdowns, md)
+		if idx+1 == len(segIdx) {
+			markdowns = append(markdowns, recoverSharp(strings.Join(slice[line:], "\n")))
+		}
+	}
+
+	// 如果没有拆分到文档，则直接返回传过来的文档
+	if len(markdowns) == 0 {
+		markdowns = []string{markdown}
+	}
+	return
 }

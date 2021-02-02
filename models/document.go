@@ -41,11 +41,11 @@ type Document struct {
 	Release      string        `orm:"column(release);type(text);null" json:"release"` // Release 发布后的Html格式内容.
 	CreateTime   time.Time     `orm:"column(create_time);type(datetime);auto_now_add" json:"create_time"`
 	MemberId     int           `orm:"column(member_id);type(int)" json:"member_id"`
-	ModifyTime   time.Time     `orm:"column(modify_time);type(datetime);default(null);auto_now" json:"modify_time"`
+	ModifyTime   time.Time     `orm:"column(modify_time);type(datetime);default(null)" json:"modify_time"`
 	ModifyAt     int           `orm:"column(modify_at);type(int)" json:"-"`
 	Version      int64         `orm:"type(bigint);column(version)" json:"version"`
 	AttachList   []*Attachment `orm:"-" json:"attach"`
-	Vcnt         int           `orm:"column(vcnt);default(0)" json:"vcnt"` //文档项目被浏览次数
+	Vcnt         int           `orm:"column(vcnt);default(0)" json:"vcnt"` //书籍被浏览次数
 	Markdown     string        `orm:"-" json:"markdown"`
 }
 
@@ -97,7 +97,7 @@ func (m *Document) Find(id int) (doc *Document, err error) {
 func (m *Document) InsertOrUpdate(cols ...string) (id int64, err error) {
 	o := orm.NewOrm()
 	id = int64(m.DocumentId)
-	m.ModifyTime = time.Now()
+
 	m.DocumentName = strings.TrimSpace(m.DocumentName)
 	if m.DocumentId > 0 { //文档id存在，则更新
 		_, err = o.Update(m, cols...)
@@ -109,6 +109,7 @@ func (m *Document) InsertOrUpdate(cols ...string) (id int64, err error) {
 	o.QueryTable("md_documents").Filter("identify", m.Identify).Filter("book_id", m.BookId).One(&mm, "document_id")
 	if mm.DocumentId == 0 {
 		m.CreateTime = time.Now()
+		m.ModifyTime = m.CreateTime
 		id, err = o.Insert(m)
 		NewBook().ResetDocumentNumber(m.BookId)
 	} else { //identify存在，则执行更新
@@ -183,7 +184,7 @@ func (m *Document) ReleaseContent(bookId int, baseUrl string) {
 	qs.One(&book)
 
 	//全部重新发布。查询该书籍的所有文档id
-	_, err := o.QueryTable(m.TableNameWithPrefix()).Filter("book_id", bookId).Limit(20000).All(&docs, "document_id", "identify")
+	_, err := o.QueryTable(m.TableNameWithPrefix()).Filter("book_id", bookId).Limit(20000).All(&docs, "document_id", "identify", "modify_time")
 	if err != nil {
 		beego.Error("发布失败 => ", err)
 		return
@@ -287,9 +288,17 @@ func (m *Document) ReleaseContent(bookId int, baseUrl string) {
 			item.Release, _ = gq.Find("body").Html()
 		}
 		ds.Content = item.Release
-		ModelStore.InsertOrUpdate(ds, "markdown", "content")
+		fields := []string{"markdown", "content"}
+		if ds.UpdatedAt.Unix() < 0 {
+			ds.UpdatedAt = time.Now()
+			fields = append(fields, "updated_at")
+		} else { // 不修改更新时间
+			fields = append(fields, "-updated_at")
+		}
+		item.ModifyTime = ds.UpdatedAt
+		ModelStore.InsertOrUpdate(ds, fields...)
 
-		_, err = o.Update(item, "release")
+		_, err = o.Update(item, "release", "modify_time")
 		if err != nil {
 			beego.Error(fmt.Sprintf("发布失败 => %+v", item), err)
 		}
@@ -520,7 +529,7 @@ func (m *Document) GenerateBook(book *Book, baseUrl string) {
 	}
 }
 
-//根据项目ID查询文档列表(含文档内容).
+//根据书籍ID查询文档列表(含文档内容).
 func (m *Document) FindListByBookId(bookId int, withoutContent ...bool) (docs []*Document, err error) {
 	q := orm.NewOrm().QueryTable(m.TableNameWithPrefix()).Filter("book_id", bookId).OrderBy("order_sort")
 	if len(withoutContent) > 0 && withoutContent[0] {
@@ -533,7 +542,7 @@ func (m *Document) FindListByBookId(bookId int, withoutContent ...bool) (docs []
 	return
 }
 
-//根据项目ID查询文档一级目录.
+//根据书籍ID查询文档一级目录.
 func (m *Document) GetMenuTop(bookId int) (docs []*Document, err error) {
 	var docsAll []*Document
 	o := orm.NewOrm()
@@ -683,43 +692,21 @@ func (m *Document) AutoTitle(identify interface{}, defaultTitle ...string) (titl
 
 // markdown 文档拆分
 func (m *Document) SplitMarkdownAndStore(seg string, markdown string, docId int) (err error) {
-	var mapReplace = map[string]string{
-		"${7}$": "#######",
-		"${6}$": "######",
-		"${5}$": "#####",
-		"${4}$": "####",
-		"${3}$": "###",
-		"${2}$": "##",
-		"${1}$": "#",
-	}
-
 	m, err = m.Find(docId)
 	if err != nil {
 		return
 	}
+	identifyFmt := "spilt.%v." + m.Identify
 
-	newIdentifyFmt := "spilt.%v." + m.Identify
-
-	seg = fmt.Sprintf("${%v}$", strings.Count(seg, "#"))
-	for i := 7; i > 0; i-- {
-		slice := make([]string, i+1)
-		k := "\n" + strings.Join(slice, "#")
-		markdown = strings.Replace(markdown, k, fmt.Sprintf("\n${%v}$", i), -1)
-	}
-	contSlice := strings.Split(markdown, seg)
-
-	for idx, val := range contSlice {
-		var doc = NewDocument()
-
-		if idx != 0 {
-			val = seg + val
-		}
-		for k, v := range mapReplace {
-			val = strings.Replace(val, k, v, -1)
+	markdowns := utils.SplitMarkdown(seg, markdown)
+	for idx, md := range markdowns {
+		if !strings.Contains(md, "[TOC]") {
+			md = "[TOC]\n\n" + md
 		}
 
-		doc.Identify = fmt.Sprintf(newIdentifyFmt, idx)
-		if idx == 0 { //不需要使用newIdentify
+		doc := NewDocument()
+		doc.Identify = fmt.Sprintf(identifyFmt, idx)
+		if idx == 0 { //不需要使用新标识
 			doc = m
 		} else {
 			doc.OrderSort = idx
@@ -727,8 +714,8 @@ func (m *Document) SplitMarkdownAndStore(seg string, markdown string, docId int)
 		}
 		doc.Release = ""
 		doc.BookId = m.BookId
-		doc.Markdown = val
-		doc.DocumentName = utils.ParseTitleFromMdHtml(mdtil.Md2html(val))
+		doc.Markdown = md
+		doc.DocumentName = utils.ParseTitleFromMdHtml(mdtil.Md2html(md))
 		doc.Version = time.Now().Unix()
 		doc.MemberId = m.MemberId
 

@@ -3,6 +3,8 @@ package models
 import (
 	"strings"
 
+	"github.com/astaxie/beego"
+
 	"github.com/TruthHun/BookStack/models/store"
 	"github.com/TruthHun/BookStack/utils"
 
@@ -15,14 +17,14 @@ var tableCategory = "md_category"
 
 // 分类
 type Category struct {
-	Id     int    `json:"id"`                          //自增主键
-	Pid    int    `json:"pid"`                         //分类id
-	Title  string `orm:"size(30);unique" json:"title"` //分类名称
-	Intro  string `json:"intro"`                       //介绍
-	Icon   string `json:"icon"`                        //分类icon
-	Cnt    int    `json:"cnt"`                         //分类下的文档项目统计
-	Sort   int    `json:"sort"`                        //排序
-	Status bool   `json:"status"`                      //分类状态，true表示显示，否则表示隐藏
+	Id     int    `json:"id"`                                    //自增主键
+	Pid    int    `json:"pid"`                                   //分类id
+	Title  string `orm:"size(30);unique" json:"title,omitempty"` //分类名称
+	Intro  string `json:"intro,omitempty"`                       //介绍
+	Icon   string `json:"icon,omitempty"`                        //分类icon
+	Cnt    int    `json:"cnt,omitempty"`                         //分类下的书籍统计
+	Sort   int    `json:"sort,omitempty"`                        //排序
+	Status bool   `json:"status,omitempty"`                      //分类状态，true表示显示，否则表示隐藏
 	//PrintBookCount int    `orm:"default(0)" json:"print_book_count"`
 	//WikiCount      int    `orm:"default(0)" json:"wiki_count"`
 	//ArticleCount   int    `orm:"default(0)" json:"article_count"`
@@ -47,7 +49,7 @@ func (this *Category) AddCates(pid int, cates string) (err error) {
 				Title:  item,
 				Status: true,
 			}
-			if o.Read(&cate, "title"); cate.Id == 0 {
+			if cnt, _ := o.QueryTable(this).Filter("title", cate.Title).Filter("pid", cate.Pid).Count(); cnt == 0 {
 				_, err = orm.NewOrm().Insert(&cate)
 			}
 		}
@@ -55,13 +57,13 @@ func (this *Category) AddCates(pid int, cates string) (err error) {
 	return
 }
 
-//删除分类（如果分类下的文档项目不为0，则不允许删除）
+//删除分类（如果分类下的书籍不为0，则不允许删除）
 func (this *Category) Del(id int) (err error) {
 	var cate = Category{Id: id}
 
 	o := orm.NewOrm()
-	if err = o.Read(&cate); cate.Cnt > 0 { //当前分类下文档项目数量不为0，不允许删除
-		return errors.New("删除失败，当前分类下的问下项目不为0，不允许删除")
+	if err = o.Read(&cate); cate.Cnt > 0 { //当前分类下书籍数量不为0，不允许删除
+		return errors.New("删除失败，当前分类下的问下书籍不为0，不允许删除")
 	}
 
 	if _, err = o.Delete(&cate, "id"); err != nil {
@@ -108,4 +110,23 @@ func (this *Category) Find(id int) (cate Category) {
 	cate.Id = id
 	orm.NewOrm().Read(&cate)
 	return cate
+}
+
+// 用户收藏了的书籍的分类
+func (m *Category) CategoryOfUserCollection(uid int, forAPI ...bool) (cates []Category) {
+	order := " ORDER BY c.sort asc,c.title asc "
+	if len(forAPI) > 0 && forAPI[0] {
+		order = " ORDER BY c.title asc "
+	}
+	sql := `
+		SELECT c.id,c.pid,c.title
+		FROM md_book_category bc
+			LEFT JOIN md_star s ON s.bid = bc.book_id
+			LEFT JOIN md_category c ON c.id = bc.category_id
+		WHERE s.uid = ?
+		GROUP BY c.id ` + order
+	if _, err := orm.NewOrm().Raw(sql, uid).QueryRows(&cates); err != nil {
+		beego.Error(err.Error())
+	}
+	return
 }

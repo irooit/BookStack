@@ -130,13 +130,16 @@ func (this *CommonController) LoginBindWechat() {
 		we.Bind(we.Openid, member.MemberId)
 	} else {
 		*member, _ = models.NewMember().GetByUsername(form.Username)
-		if ok, _ := utils.PasswordVerify(member.Password, form.Password); !ok {
-			this.Response(http.StatusBadRequest, messageUsernameOrPasswordError)
+
+		if member.MemberId == 0 {
+			this.Response(http.StatusBadRequest, "您要绑定的用户不存在")
 		}
+
 		if ok, _ := utils.PasswordVerify(member.Password, form.Password); !ok {
 			beego.Error(err)
 			this.Response(http.StatusBadRequest, messageUsernameOrPasswordError)
 		}
+
 		we.Bind(we.Openid, member.MemberId)
 	}
 	this.login(*member)
@@ -405,6 +408,10 @@ func (this *CommonController) SearchBook() {
 		this.Response(http.StatusBadRequest, messageBadRequest)
 	}
 
+	if models.NewOption().IsResponseEmptyForAPP(this.Version, wd) {
+		this.Response(http.StatusOK, messageSuccess, map[string]interface{}{"total": 0})
+	}
+
 	var (
 		page, _  = this.GetInt("page", 1)
 		size, _  = this.GetInt("size", 10)
@@ -462,6 +469,10 @@ func (this *CommonController) SearchDoc() {
 	wd := this.GetString("wd")
 	if wd == "" {
 		this.Response(http.StatusBadRequest, messageBadRequest)
+	}
+
+	if models.NewOption().IsResponseEmptyForAPP(this.Version, wd) {
+		this.Response(http.StatusOK, messageSuccess, map[string]interface{}{"total": 0})
 	}
 
 	var (
@@ -559,9 +570,13 @@ func (this *CommonController) Categories() {
 	if err != nil {
 		pid = -1
 	}
-
+	m := models.NewOption()
 	categories, _ := model.GetCates(pid, 1)
 	for idx, category := range categories {
+		if m.IsResponseEmptyForAPP(this.Version, category.Title) {
+			// 为0，APP端就不会显示该分类
+			category.Cnt = 0
+		}
 		if category.Icon != "" {
 			if category.Icon == "" {
 				category.Icon = "/static/images/cate.png"
@@ -792,7 +807,7 @@ func (this *CommonController) Read() {
 		beego.Error(err.Error())
 	}
 
-	//项目阅读人次+1
+	//书籍阅读人次+1
 	if err = models.SetIncreAndDecre("md_books", "vcnt",
 		fmt.Sprintf("book_id=%v", doc.BookId),
 		true, 1,
@@ -872,9 +887,7 @@ func (this *CommonController) handleReleaseV1(release string, bookIdentify strin
 			return true
 		})
 
-		hasImage := false
 		query.Find("img").Each(func(i int, contentSelection *goquery.Selection) {
-			hasImage = true
 			if src, ok := contentSelection.Attr("src"); ok {
 				contentSelection.SetAttr("src", this.completeLink(src))
 			}
@@ -915,6 +928,12 @@ func (this *CommonController) Banners() {
 	if bannerSize <= 0 {
 		bannerSize = 2.619
 	}
+
+	for idx, banner := range banners {
+		banner.Image = this.completeLink(banner.Image)
+		banners[idx] = banner
+	}
+
 	this.Response(http.StatusOK, messageSuccess, map[string]interface{}{"banners": banners, "size": bannerSize})
 }
 
@@ -966,16 +985,15 @@ func (this *CommonController) Bookshelf() {
 		this.Response(http.StatusBadRequest, messageBadRequest)
 	}
 
+	cid, _ := this.GetInt("cid")
+	withCate, _ := this.GetInt("with-cate", 0)
 	size, _ := this.GetInt("size", 10)
-
 	size = utils.RangeNumber(size, 10, maxPageSize)
-
 	page, _ := this.GetInt("page", 1)
 	if page <= 0 {
 		page = 1
 	}
-
-	total, res, err := new(models.Star).List(uid, page, size)
+	total, res, err := new(models.Star).List(uid, page, size, cid)
 	if err != nil {
 		beego.Error(err.Error())
 		this.Response(http.StatusInternalServerError, messageInternalServerError)
@@ -998,6 +1016,10 @@ func (this *CommonController) Bookshelf() {
 	if len(booksId) > 0 {
 		//data["readed"] = new(models.ReadRecord).BooksProgress(uid, booksId...)
 		data["books"] = books
+	}
+
+	if withCate > 0 {
+		data["categories"] = models.NewCategory().CategoryOfUserCollection(uid, true)
 	}
 
 	this.Response(http.StatusOK, messageSuccess, data)
@@ -1056,6 +1078,26 @@ func (this *CommonController) RelatedBook() {
 	}
 	data := map[string]interface{}{"books": []string{}}
 	if len(books) > 0 {
+		data["books"] = books
+	}
+	this.Response(http.StatusOK, messageSuccess, data)
+}
+
+// 查询最近阅读过的书籍，返回最近50本
+func (this *CommonController) HistoryReadBook() {
+	page, _ := this.GetInt("page", 1)
+	size, _ := this.GetInt("size", 10)
+	if size <= 0 {
+		size = 10
+	}
+	data := map[string]interface{}{"books": []string{}}
+	uid := this.isLogin()
+	if uid > 0 {
+		books := models.NewReadRecord().HistoryReadBook(uid, page, size)
+		for idx, book := range books {
+			book.Cover = this.completeLink(book.Cover)
+			books[idx] = book
+		}
 		data["books"] = books
 	}
 	this.Response(http.StatusOK, messageSuccess, data)

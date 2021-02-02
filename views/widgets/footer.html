@@ -36,7 +36,7 @@
                 </div>
                 <div class="col-xs-12 mgt-15px  text-center">
                     {{if $.ICP}}
-                    <div class="help-block"><a href="http://www.miitbeian.gov.cn/" target="_blank" rel="nofollow">{{$.ICP}}</a></div>
+                    <div class="help-block"><a href="http://beian.miit.gov.cn/" title="{{$.ICP}}" target="_blank" rel="nofollow">{{$.ICP}}</a></div>
                     {{end}}
                     <div class="help-block">
                         <small><a target="_blank" class="text-muted" title="站点地图" href="/sitemap.xml">站点地图</a></small>
@@ -52,9 +52,9 @@
 
     </div>
 </div>
-<script src="/static/jquery/1.12.4/jquery.min.js" type="text/javascript"></script>
-<script src="/static/bootstrap/js/bootstrap.min.js" type="text/javascript"></script>
-<script type="text/javascript" src="{{$.StaticDomain}}/static/js/toast.script.js"></script>
+<script src="{{$.StaticDomain}}/static/jquery/1.12.4/jquery.min.js" type="text/javascript"></script>
+<script src="{{$.StaticDomain}}/static/bootstrap/js/bootstrap.min.js" type="text/javascript"></script>
+<script src="{{$.StaticDomain}}/static/js/toast.script.js" type="text/javascript"></script>
 <script>
     $(function () {
         $(".tooltips").tooltip();

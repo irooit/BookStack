@@ -192,7 +192,7 @@
                             </div>
                         </div>
                         <div class="form-group">
-                            <label>是否都可以创建项目( <span class="text-muted"> 选择是，<span class="text-danger">所有人</span>都可以创建书籍项目；选择否，只有 <span class="text-danger">作者</span> 和 <span class="text-danger">管理员</span> 才能创建项目</span> )</label>
+                            <label>是否都可以创建书籍( <span class="text-muted"> 选择是，<span class="text-danger">所有人</span>都可以创建书籍书籍；选择否，只有 <span class="text-danger">作者</span> 和 <span class="text-danger">管理员</span> 才能创建书籍</span> )</label>
                             <div class="radio">
                                 <label class="radio-inline">
                                     <input type="radio" {{if eq .ALL_CAN_WRITE_BOOK.OptionValue "true"}}checked{{end}} name="ALL_CAN_WRITE_BOOK" value="true">是<span class="text"></span>
@@ -234,6 +234,14 @@
                             <input type="number" name="APP_VERSION" class="form-control" value="{{.APP_VERSION.OptionValue}}">
                         </div>
                         <div class="form-group">
+                            <label>App Store审核中的版本( <span class="text-muted">如v1.5.0。iOS APP审核通过后，请务必置空，避免屏蔽的内容无法在APP端显示</span> )</label>
+                            <input type="text" name="CheckingAppVersion" class="form-control" value="{{.CheckingAppVersion.OptionValue}}">
+                        </div>
+                        <div class="form-group">
+                            <label>App Store审核时屏蔽的关键字( <span class="text-muted">多个关键字用英文逗号分隔</span> )</label>
+                            <input type="text" name="CheckingForbidWords" class="form-control" value="{{.CheckingForbidWords.OptionValue}}">
+                        </div>
+                        <div class="form-group">
                             <label>手机APP下载单页( <span class="text-muted">如果单页链接不为空，则会在导航栏显示APP下载页面</span> )</label>
                             <input type="text" name="APP_PAGE" class="form-control" value="{{.M_APP_PAGE.OptionValue}}">
                         </div>
@@ -244,6 +252,11 @@
                         <div class="form-group">
                             <label>是否需要登录才能下载电子书( <span class="text-muted">如果需要登录才能下载电子书，请输入相关登录下载提示；置空则表示允许免登录下载</span> )</label>
                             <input type="text" name="DOWNLOAD_LIMIT" class="form-control" value="{{.DOWNLOAD_LIMIT.OptionValue}}">
+                        </div>
+
+                        <div class="form-group">
+                            <label>每天每次阅读学习多少分钟可以下载一本电子书( <span class="text-muted">默认每阅读学习1分钟可以下载一本电子书，0表示不限制</span> )</label>
+                            <input type="text" name="DOWNLOAD_INTERVAL" class="form-control" value="{{.DOWNLOAD_INTERVAL.OptionValue}}">
                         </div>
 
 
@@ -320,7 +333,12 @@
 
                         <div class="form-group">
                             <label>站点统计</label>
-                            <textarea name="TONGJI" PLACEHOLDER="站点统计代码"  class="form-control" rows="3">{{.TONGJI.OptionValue}}</textarea>
+                            <textarea name="TONGJI" PLACEHOLDER="站点统计代码"  class="form-control" rows="4">{{.TONGJI.OptionValue}}</textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label>禁止的Referer (<small class="text-muted">多个请换行，每行输入referer的关键字</small>)</label>
+                            <textarea name="FORBIDDEN_REFERER" PLACEHOLDER=""  class="form-control" rows="4">{{.FORBIDDEN_REFERER.OptionValue}}</textarea>
                         </div>
 
 
@@ -340,9 +358,9 @@
 
 
 {{/*<script src="/static/jquery/1.12.4/jquery.min.js" type="text/javascript"></script>*/}}
-<script src="/static/jquery/1.12.4/jquery.min.js" type="text/javascript"></script>
+<script src="{{$.StaticDomain}}/static/jquery/1.12.4/jquery.min.js" type="text/javascript"></script>
 {{/*<script src="/static/bootstrap/js/bootstrap.min.js" type="text/javascript"></script>*/}}
-<script src="/static/bootstrap/js/bootstrap.min.js" type="text/javascript"></script>
+<script src="{{$.StaticDomain}}/static/bootstrap/js/bootstrap.min.js" type="text/javascript"></script>
 <script src="{{$.StaticDomain}}/static/js/toast.script.js" type="text/javascript"></script>
 <script src="{{$.StaticDomain}}/static/js/jquery.form.js" type="text/javascript"></script>
 <script src="/static/js/main.js?version={{$.Version}}" type="text/javascript"></script>

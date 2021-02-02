@@ -22,7 +22,7 @@
                         <a href="{{urlfor "HomeController.Index"}}?tab=recommend" title="更多推荐"><i class="fa fa-thumbs-o-up"></i> 最新推荐</a>
                         <span style="color: #ddd;"> &nbsp;|&nbsp; </span>
                         <a href="{{urlfor "SettingController.Star"}}" style="color: #f44336" title="我的收藏"><i class="fa fa-heart"></i> 我的收藏</a>
-{{/*                        <span class="text-muted hidden-xs hidden-sm" style="margin-left: 30px;">猿生不能只有 <span class="text-red">Ctrl + C</span> 和 <span class="text-red">Ctrl + V</span>，还要有 <span class="text-red">Ctrl + D</span></span>*/}}
+                        <span class="text-muted hidden-xs hidden-sm" style="margin-left: 30px;">猿生不能只有 <span class="text-red">Ctrl + C</span> 和 <span class="text-red">Ctrl + V</span>，还要有 <span class="text-red">Ctrl + D</span></span>
                         <small class="pull-right">
                             <a href="{{urlfor "HomeController.Index"}}?tab=recommend" title="更多推荐"> 更多 <i class="fa fa-angle-right"></i><i class="fa fa-angle-right"></i></a>
                         </small>
@@ -56,7 +56,7 @@
                             <li><a href="javascript:void(0)" data-show="all" class="active" title="全部分类">全部分类</a></li>
                             {{range $idx,$cate:=.Cates}}
                                 {{if and (eq $cate.Pid 0) (gt $cate.Cnt 0)}}
-                                    <li><a href="javascript:void(0);" title="{{$cate.Title}}" data-show="{{$cate.Title}}">{{$cate.Title}}</a></li>
+                                    <li><a href="javascript:void(0);" title="{{$cate.Title}}" data-show="cate-{{$cate.Id}}">{{$cate.Title}}</a></li>
                                 {{end}}
                             {{end}}
                         </ul>
@@ -67,11 +67,11 @@
             {{else}}<div class="col-xs-12">{{end}}
                 {{range $idx,$cate:=.Cates}}
                     {{if and (eq $cate.Pid 0) (gt $cate.Cnt 0)}}
-                        <div class="panel panel-default" id="{{$cate.Title}}">
+                        <div class="panel panel-default" id="cate-{{$cate.Id}}">
                             <div class="panel-heading">
                                 <h3 class="panel-title">
                                     <!--这里不显示一级分类的计数，主要是为了避免误导用户，因为一本书籍，可能属于多个子分类，但是一级分类下的计数并不是所有子分类计数的和-->
-                                    <a href="{{urlfor "HomeController.Index"}}?cid={{$cate.Id}}&tab=popular" title="{{$cate.Title}}"><i class="fa fa-th"></i> {{$cate.Title}} <!-- （{{$cate.Cnt}}） --></a>
+                                    <a href="{{urlfor "HomeController.Index"}}?cid={{$cate.Id}}&tab=popular" title="{{$cate.Title}}"><i class="fa fa-th text-muted"></i> &nbsp;{{$cate.Title}} <!-- （{{$cate.Cnt}}） --></a>
                                 </h3>
                             </div>
                             <div class="panel-body" style="padding-left: 0px;padding-right:0px;margin-left: -8px;margin-right: -8px;">
@@ -98,9 +98,39 @@
 
     </div>
 </div>
+<div class="backtop tooltips" title="回到顶部">
+    <i class="fa fa-arrow-up"></i>
+</div>
 {{template "widgets/footer.html" .}}
 <script>
+    'use strict';
     $(function () {
+        function setFixedWith(){
+            $(".category-index .panel-default").attr("style","width:"+$(".category-index").width()+"px")
+        }
+        function fixed(){
+            var top = $(".category-index").offset().top
+            var height = $(window).height() - 110 - 70
+            var style = 'max-height:'+height+'px';
+            var scrollTop = $(window).scrollTop()
+            if(scrollTop -15>=top){
+                $(".category-index .panel-default").addClass("fixed")
+                $(".category-index .panel-body").attr("style",style)
+            }else{
+                $(".category-index .panel-default").removeClass("fixed")
+                $(".category-index .panel-body").attr("style",'')
+            }
+            console.log(scrollTop)
+            var panels = $(".category-detail>.panel")
+            
+            for (var i = 0; i < panels.length; i++) {
+                if($(panels[i]).offset().top - scrollTop>=0){
+                    $(".category-index a").removeClass("active");
+                    $("[data-show="+$(panels[i]).attr("id")+"]").addClass("active");
+                    i=panels.length
+                }
+            }
+        }
         $(".cate-item").tooltip();
         $(".category-index a").tooltip();
         $(".panel-recommend .panel-body a").tooltip();
@@ -108,22 +138,30 @@
             e.preventDefault()
             location.href=$(this).find("a").attr("href")
         });
-
         $(".category-index a").click(function () {
             var show=$(this).attr("data-show"),panels = $('.category-detail .panel');
             $(".category-index a").removeClass("active");
             $(this).addClass("active");
-
-            if(show == 'all'){
-                panels.show()
+            var panel=$(".category-detail #"+show);
+            if(panel.length == 0){
+                $(window).scrollTop(0)
             }else{
-                $.each(panels,function () {
-                    console.log($(this).attr("id"),show)
-                    $(this).attr("id") == show ? $(this).show() : $(this).hide();
-                })
+                var scrollTo = panel.offset().top - 70;
+                $(window).scrollTop(scrollTo)
             }
         });
-
+        setFixedWith()
+        fixed()
+        $(window).resize(function () {
+            setFixedWith()
+        })
+        $(window).scroll(function () {
+            fixed()
+        })
+        
+        $(".backtop").click(function () {
+            $(window).scrollTop(0)
+        });
     })
 </script>
 </body>

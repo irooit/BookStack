@@ -38,7 +38,7 @@ func (this *StaticController) StaticFile() {
 	http.ServeFile(this.Ctx.ResponseWriter, this.Ctx.Request, path)
 }
 
-// 项目静态文件
+// 书籍静态文件
 func (this *StaticController) ProjectsFile() {
 	prefix := "projects/"
 	object := prefix + strings.TrimLeft(this.GetString(":splat"), "./")
@@ -53,23 +53,28 @@ func (this *StaticController) ProjectsFile() {
 	}
 
 	if utils.StoreType == utils.StoreOss { //oss
-		reader, err := store.NewOss().GetFileReader(object)
-		if err != nil {
-			beego.Error(err.Error())
-			this.Abort("404")
-		}
-		defer reader.Close()
+		staticDomain := strings.Trim(beego.AppConfig.DefaultString("static_domain", ""), "/")
+		if staticDomain == "" {
+			reader, err := store.NewOss().GetFileReader(object)
+			if err != nil {
+				beego.Error(err.Error())
+				this.Abort("404")
+			}
+			defer reader.Close()
 
-		b, err := ioutil.ReadAll(reader)
-		if err != nil {
-			beego.Error(err.Error())
-			this.Abort("404")
+			b, err := ioutil.ReadAll(reader)
+			if err != nil {
+				beego.Error(err.Error())
+				this.Abort("404")
+			}
+			this.Ctx.ResponseWriter.Header().Set("Last-Modified", date)
+			if strings.HasSuffix(object, ".svg") {
+				this.Ctx.ResponseWriter.Header().Set("Content-Type", "image/svg+xml")
+			}
+			this.Ctx.ResponseWriter.Write(b)
+			return
 		}
-		this.Ctx.ResponseWriter.Header().Set("Last-Modified", date)
-		if strings.HasSuffix(object, ".svg") {
-			this.Ctx.ResponseWriter.Header().Set("Content-Type", "image/svg+xml")
-		}
-		this.Ctx.ResponseWriter.Write(b)
+		this.Redirect(staticDomain+"/"+object, 302)
 	} else { //local
 		this.Abort("404")
 	}

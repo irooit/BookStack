@@ -3,6 +3,7 @@ package controllers
 import (
 	"bytes"
 	"fmt"
+	"net/url"
 	"strconv"
 	"unicode/utf8"
 
@@ -35,16 +36,45 @@ type BaseController struct {
 	Sitename              string
 	IsMobile              bool
 	OssDomain             string
+	StaticDomain          string
 	NoNeedLoginRouter     bool
 }
+
 type CookieRemember struct {
 	MemberId int
 	Account  string
 	Time     time.Time
 }
 
+func (this *BaseController) refreshReferer() {
+	referer := this.Ctx.Request.Header.Get("referer")
+	if referer != "" {
+		referer, _ = url.QueryUnescape(referer)
+		referer = strings.ToLower(referer)
+		forbid := models.NewOption().ForbiddenReferer()
+		if len(forbid) > 0 {
+			for _, item := range forbid {
+				item = strings.ToLower(strings.TrimSpace(item))
+				// 先判断是否带有非法关键字
+				if item != "" && strings.Contains(referer, item) && !strings.HasSuffix(referer, strings.ToLower(this.Ctx.Request.RequestURI)) {
+					if u, err := url.Parse(referer); err == nil {
+						// 且referer的host与当前请求的host不是同一个，则进行302跳转以刷新过滤当前referer
+						if strings.ToLower(u.Host) != strings.ToLower(this.Ctx.Request.Host) {
+							this.Redirect(this.Ctx.Request.RequestURI, 302)
+							this.StopRun()
+							return
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 // Prepare 预处理.
 func (this *BaseController) Prepare() {
+	this.refreshReferer()
+
 	this.Data["Version"] = utils.Version
 	this.IsMobile = utils.IsMobile(this.Ctx.Request.UserAgent())
 	this.Data["IsMobile"] = this.IsMobile
@@ -54,7 +84,9 @@ func (this *BaseController) Prepare() {
 	this.EnableDocumentHistory = 0
 	this.OssDomain = strings.TrimRight(beego.AppConfig.String("oss::Domain"), "/ ")
 	this.Data["OssDomain"] = this.OssDomain
-	this.Data["StaticDomain"] = strings.Trim(beego.AppConfig.DefaultString("static_domain", ""), "/")
+	this.StaticDomain = strings.Trim(beego.AppConfig.DefaultString("static_domain", ""), "/")
+	this.Data["StaticDomain"] = this.StaticDomain
+
 	//从session中获取用户信息
 	if member, ok := this.GetSession(conf.LoginSessionName).(models.Member); ok && member.MemberId > 0 {
 		m, _ := models.NewMember().Find(member.MemberId)
@@ -83,6 +115,7 @@ func (this *BaseController) Prepare() {
 	if this.Member.MemberId > 0 {
 		this.Data["IsSignedToday"] = models.NewSign().IsSignToday(this.Member.MemberId)
 	}
+
 	if options, err := models.NewOption().All(); err == nil {
 		this.Option = make(map[string]string, len(options))
 		for _, item := range options {
@@ -104,6 +137,7 @@ func (this *BaseController) Prepare() {
 			}
 		}
 	}
+
 	if v, ok := this.Option["CLOSE_OPEN_SOURCE_LINK"]; ok {
 		this.Data["CloseOpenSourceLink"] = v == "true"
 	}
@@ -117,6 +151,21 @@ func (this *BaseController) Prepare() {
 	}
 
 	this.Data["SiteName"] = this.Sitename
+
+	// 默认显示创建书籍的入口
+	ShowCreateBookEntrance := false
+
+	if this.Member.MemberId > 0 {
+		ShowCreateBookEntrance = true
+		if opt, err := models.NewOption().FindByKey("ALL_CAN_WRITE_BOOK"); err == nil {
+			if opt.OptionValue == "false" && this.Member.Role == conf.MemberGeneralRole {
+				// 如果用户现在是普通用户，但是之前是作者或者之前有新建书籍书籍的权限并且创建了书籍，则也给用户显示入口
+				ShowCreateBookEntrance = models.NewRelationship().HasRelatedBook(this.Member.MemberId)
+			}
+		}
+	}
+
+	this.Data["ShowCreateBookEntrance"] = ShowCreateBookEntrance
 
 	if this.Member.MemberId == 0 {
 		if this.EnableAnonymous == false && !this.NoNeedLoginRouter { // 不允许游客访问
@@ -523,7 +572,7 @@ func (this *BaseController) SignToday() {
 }
 
 func (this *BaseController) forbidGeneralRole() bool {
-	// 如果只有作者和管理员才能写作的话，那么已创建了项目的普通用户无法将项目转为公开或者是私密分享
+	// 如果只有作者和管理员才能写作的话，那么已创建了书籍的普通用户无法将书籍转为公开或者是私密分享
 	if this.Member.Role == conf.MemberGeneralRole && models.GetOptionValue("ALL_CAN_WRITE_BOOK", "true") != "true" {
 		return true
 	}

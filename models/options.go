@@ -1,9 +1,14 @@
 package models
 
 import (
+	"strings"
+	"sync"
+
 	"github.com/TruthHun/BookStack/conf"
 	"github.com/astaxie/beego/orm"
 )
+
+var optionCache sync.Map // map[int || string]*Option
 
 // Option struct .
 type Option struct {
@@ -12,6 +17,14 @@ type Option struct {
 	OptionName  string `orm:"column(option_name);unique;size(80)" json:"option_name"`
 	OptionValue string `orm:"column(option_value);type(text);null" json:"option_value"`
 	Remark      string `orm:"column(remark);type(text);null" json:"remark"`
+}
+
+func initOptionCache() {
+	opts, _ := NewOption().All()
+	for _, opt := range opts {
+		optionCache.Store(opt.OptionName, opt)
+		optionCache.Store(opt.OptionId, opt)
+	}
 }
 
 // TableName 获取对应数据库表名.
@@ -33,10 +46,14 @@ func NewOption() *Option {
 }
 
 func (p *Option) Find(id int) (*Option, error) {
+
+	if val, ok := optionCache.Load(id); ok {
+		p = val.(*Option)
+		return p, nil
+	}
+
 	o := orm.NewOrm()
-
 	p.OptionId = id
-
 	if err := o.Read(p); err != nil {
 		return p, err
 	}
@@ -44,6 +61,12 @@ func (p *Option) Find(id int) (*Option, error) {
 }
 
 func (p *Option) FindByKey(key string) (*Option, error) {
+
+	if val, ok := optionCache.Load(key); ok {
+		p = val.(*Option)
+		return p, nil
+	}
+
 	o := orm.NewOrm()
 	if err := o.QueryTable(p).Filter("option_name", key).One(p); err != nil {
 		return p, err
@@ -52,7 +75,6 @@ func (p *Option) FindByKey(key string) (*Option, error) {
 }
 
 func GetOptionValue(key, def string) string {
-
 	if option, err := NewOption().FindByKey(key); err == nil {
 		return option.OptionValue
 	}
@@ -60,7 +82,9 @@ func GetOptionValue(key, def string) string {
 }
 
 func (p *Option) InsertOrUpdate() error {
-
+	defer func() {
+		initOptionCache()
+	}()
 	o := orm.NewOrm()
 
 	var err error
@@ -76,6 +100,7 @@ func (p *Option) InsertOrUpdate() error {
 func (p *Option) InsertMulti(option ...Option) error {
 	o := orm.NewOrm()
 	_, err := o.InsertMulti(len(option), option)
+	initOptionCache()
 	return err
 }
 
@@ -167,7 +192,7 @@ func (m *Option) Init() error {
 		}, {
 			OptionValue: "true",
 			OptionName:  "ALL_CAN_WRITE_BOOK",
-			OptionTitle: "是否都可以创建项目",
+			OptionTitle: "是否都可以创建书籍",
 		}, {
 			OptionValue: "false",
 			OptionName:  "CLOSE_SUBMIT_ENTER",
@@ -175,7 +200,7 @@ func (m *Option) Init() error {
 		}, {
 			OptionValue: "true",
 			OptionName:  "CLOSE_OPEN_SOURCE_LINK",
-			OptionTitle: "是否关闭开源项目入口",
+			OptionTitle: "是否关闭开源书籍入口",
 		}, {
 			OptionValue: "0",
 			OptionName:  "HOUR_REG_NUM",
@@ -261,6 +286,26 @@ func (m *Option) Init() error {
 			OptionName:  "COLLAPSE_HIDE",
 			OptionTitle: "目录是否默认收起",
 		},
+		{
+			OptionValue: "",
+			OptionName:  "FORBIDDEN_REFERER",
+			OptionTitle: "禁止的Referer",
+		},
+		{
+			OptionValue: "",
+			OptionName:  "CheckingAppVersion",
+			OptionTitle: "审核中的APP版本",
+		},
+		{
+			OptionValue: "Android, 安卓",
+			OptionName:  "CheckingForbidWords",
+			OptionTitle: "iOS APP提交审核时屏蔽的关键字",
+		},
+		{
+			OptionValue: "1",
+			OptionName:  "DOWNLOAD_INTERVAL",
+			OptionTitle: "每阅读多少秒可以下载一个电子书",
+		},
 	}
 
 	for _, op := range options {
@@ -270,6 +315,28 @@ func (m *Option) Init() error {
 			}
 		}
 	}
-
+	initOptionCache()
 	return nil
+}
+
+func (m *Option) ForbiddenReferer() []string {
+	return strings.Split(GetOptionValue("FORBIDDEN_REFERER", ""), "\n")
+}
+
+func (m *Option) IsResponseEmptyForAPP(requestVersion, word string) (yes bool) {
+	version := GetOptionValue("CheckingAppVersion", "")
+	if version == "" {
+		return
+	}
+	if strings.ToLower(strings.TrimSpace(requestVersion)) == version {
+		words := strings.Split(GetOptionValue("CheckingForbidWords", ""), ",")
+		word = strings.ToLower(strings.TrimSpace(word))
+		for _, item := range words {
+			item = strings.ToLower(strings.TrimSpace(item))
+			if strings.Contains(word, item) {
+				return true
+			}
+		}
+	}
+	return
 }
